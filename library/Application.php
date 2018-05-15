@@ -38,19 +38,20 @@ class Application
         return self::$_app;
     }
 
-    /**
-     * 操作系统实例
-     * @return os
-     */
-    public static function os()
+    public function run()
     {
-
-    }
-
-    public static function run()
-    {
-        global $argv;
-        @list($entry, $command) = $argv;
-        Server::handle($entry, $command);
+        $server = new Server('0.0.0.0', 8888);
+        // $server->run(
+        //     array(
+        //         'worker_num' => 4,
+        //         'max_request' => 5000,
+        //         'dispatch_mode' => 3,
+        //         'open_length_check' => 1,
+        //         'package_max_length' => $AppSvr->packet_maxlen,
+        //         'package_length_type' => 'N',
+        //         'package_body_offset' => \Swoole\Protocol\RPCServer::HEADER_SIZE,
+        //         'package_length_offset' => 0,
+        //     )
+        // );
     }
 }
