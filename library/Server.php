@@ -10,12 +10,19 @@ class Server
 {
     private static $pid_file;
     private $server;
+    private $host;
+    private $port;
 
     /**
      * 服务器设置
      * @var $setting
      */
     private $setting = array();
+
+    const PACKMAX_LENGTH        = 2465792; // 2M默认最大长度
+    const HEADER_SIZE           = 16;
+    const HEADER_STRUCT         = "Nlength/Ntype/Nuid/Nserid";
+    const HEADER_PACK           = "NNNN";
 
     /**
      * 设置PID文件
@@ -60,34 +67,21 @@ class Server
 
     function __construct($host, $port)
     {
+        $this->port = $port;
+        $this->host = $host;
         $this->server = new \swoole_server($host, $port, SWOOLE_PROCESS, SWOOLE_SOCK_TCP);
-    }
-
-    /**
-     * 设置进程的名称
-     * @param $name
-     */
-    function setProcessName($name)
-    {
-        if (function_exists('cli_set_process_title')) {
-            @cli_set_process_title($name);
-        } else {
-            if (function_exists('swoole_set_process_name')) {
-                @swoole_set_process_name($name);
-            } else {
-                trigger_error(__METHOD__ . " failed. require cli_set_process_title or swoole_set_process_name.");
-            }
-        }
-    }
-
-    /**
-     * 获取进程名称
-     * @return string
-     */
-    function getProcessName()
-    {
-        global $argv;
-        return "php {$argv[0]}";
+        // 默认的服务器配置
+        $this->setting = array(
+            'worker_num' => 1,
+            'daemonize' => 0,
+            'max_request' => 10000,
+            'dispatch_mode' => 3, // 分发策略 https://wiki.swoole.com/wiki/page/277.html
+            'open_length_check' => true, // 打开包长检测特性 https://wiki.swoole.com/wiki/page/287.html
+            'package_max_length' => 2465792, // 2M默认最大长度
+            'package_length_type' => 'N',
+            'package_body_offset' => self::HEADER_SIZE,
+            'package_length_offset' => 0,
+        );
     }
 
     function run($setting = array())
@@ -108,17 +102,41 @@ class Server
         $this->server->on('WorkerStart', array($this, 'onWorkerStart'));
         $this->server->on('Connect', array($this, 'onConnect'));
         $this->server->on('Close', array($this, 'onClose'));
-        $this->server->on('Request', array($this, 'onRequest'));
         $this->server->on('Receive', array($this, 'onReceive'));
-        $this->server->on('WorkerStop', array($this, 'WorkerStop'));
-        $this->server->on('Task', array($this, 'onTask'));
-        $this->server->on('Finish', array($this, 'onFinish'));
+        $this->server->on('WorkerStop', array($this, 'onWorkerStop'));
 
         // 启动服务
         $this->server->start();
     }
 
-    function onMasterStart($serv)
+    /**
+     * 设置进程的名称
+     * @param $name
+     */
+    private function setProcessName($name)
+    {
+        if (function_exists('cli_set_process_title')) {
+            @cli_set_process_title($name);
+        } else {
+            if (function_exists('swoole_set_process_name')) {
+                @swoole_set_process_name($name);
+            } else {
+                trigger_error(__METHOD__ . " failed. require cli_set_process_title or swoole_set_process_name.");
+            }
+        }
+    }
+
+    /**
+     * 获取进程名称
+     * @return string
+     */
+    private function getProcessName()
+    {
+        global $argv;
+        return "php {$argv[0]}";
+    }
+
+    public function onMasterStart($serv)
     {
         $this->setProcessName($this->getProcessName() . ': master -host=' . $this->host . ' -port=' . $this->port);
         if (!empty($this->setting['pid_file'])) {
@@ -126,14 +144,14 @@ class Server
         }
     }
 
-    function onMasterStop($serv)
+    public function onMasterStop($serv)
     {
         if (!empty($this->setting['pid_file'])) {
             unlink(self::$pid_file);
         }
     }
 
-    function onWorkerStart($serv, $worker_id)
+    public function onWorkerStart($serv, $worker_id)
     {
         /**
          * 清理Opcache缓存
@@ -155,42 +173,32 @@ class Server
         }
     }
 
-    function onWorkerStop($serv, $worker_id)
-    {
-        
-    }
-
-    function onConnect($serv, $client_id, $from_id)
+    public function onWorkerStop($serv, $worker_id)
     {
 
     }
 
-    function onReceive($serv, $client_id, $from_id, $data)
+    public function onConnect($serv, $client_id, $from_id)
     {
 
     }
 
-    function onClose($serv, $client_id, $from_id)
+    public function onReceive($serv, $client_id, $from_id, $data)
     {
 
     }
 
-    function onManagerStop()
+    public function onClose($serv, $client_id, $from_id)
     {
 
     }
 
-    function onRequest()
+    public function onManagerStop()
     {
 
     }
 
-    function onTask()
-    {
-
-    }
-
-    function onFinish()
+    public function onRequest()
     {
 
     }
